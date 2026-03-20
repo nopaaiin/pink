@@ -368,9 +368,9 @@ class Horse {
       if (toHandX > 0) this.dir = 1;
       else this.dir = -1;
       const angle = Math.atan2(handY * H - this.y, toHandX);
-      this.vx += Math.cos(angle) * 0.12 * influence;
-      this.vy += Math.sin(angle) * 0.06 * influence;
-      this.frameSpeed = 10;
+      this.vx += Math.cos(angle) * 0.5 * (influence + 0.4);
+      this.vy += Math.sin(angle) * 0.3 * (influence + 0.4);
+      this.frameSpeed = 7;
     } else if (handState === 'closed') {
       // 손 쥐면 도망 — 손 반대 방향으로
       const fleeSpeed = handSpeed > 0.3 ? 4.5 : 1.8;
@@ -642,8 +642,27 @@ function render() {
   // 말 업데이트 & 그리기
   horses.forEach(h => {
     h.update(handState, handSpeed, handX, handY);
-    h.draw();
   });
+
+  // 말끼리 밀어내기
+  for (let i = 0; i < horses.length; i++) {
+    for (let j = i + 1; j < horses.length; j++) {
+      const a = horses[i], b = horses[j];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const minDist = 80;
+      if (dist < minDist && dist > 0) {
+        const force = (minDist - dist) / minDist * 0.4;
+        const nx = dx / dist, ny = dy / dist;
+        a.vx -= nx * force;
+        a.vy -= ny * force;
+        b.vx += nx * force;
+        b.vy += ny * force;
+      }
+    }
+  }
+
+  horses.forEach(h => h.draw());
 
   requestAnimationFrame(render);
 }
