@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>말 (馬 / 言)</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400&display=swap" rel="stylesheet">
-<style> padding: 0; box-sizing: border-box; cursor: none; }
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; cursor: none; }
 
 body {
   background: #ffffff;
@@ -752,6 +753,17 @@ for (let i = 0; i < 3; i++) {
 // 도트 말 4마리
 for (let i = 0; i < 4; i++) {
   horses.push(new Horse('dot', 100 + Math.random() * (W - 200), 100 + Math.random() * (H - 200)));
+}
+
+// ── 인트로 → 메인 전환 ──
+let introDone = false;
+const introEl = document.getElementById('intro');
+
+function startMain() {
+  if (introDone) return;
+  introDone = true;
+  introEl.classList.add('hide');
+  setTimeout(() => { introEl.style.display = 'none'; }, 1200);
 }
 
 // ── 손 인식 상태 ──
