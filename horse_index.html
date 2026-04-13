@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>말 (馬 / 言)</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400&display=swap" rel="stylesheet">
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; cursor: none; }
 
@@ -216,149 +215,9 @@ body {
   transition: color .2s;
 }
 .stmt-close:hover { color: #cc0000; }
-
-/* ── 인트로 화면 ── */
-/* ── 인트로 배경 한자 ── */
-.intro-bg-char {
-  position: absolute;
-  font-family: 'Noto Serif SC', serif;
-  font-size: 55vw;
-  font-weight: 300;
-  color: rgba(180, 60, 30, 0.045);
-  pointer-events: none;
-  user-select: none;
-  white-space: nowrap;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  letter-spacing: 0.18em;
-  animation: fadeUpIn 2s ease 0.1s forwards;
-  opacity: 0;
-}
-
-/* ── 인트로 세로선 ── */
-.intro-divider {
-  display: inline-block;
-  width: 1px;
-  height: 0.75em;
-  background: rgba(180, 60, 30, 0.35);
-  margin: 0 0.3em;
-  vertical-align: middle;
-  position: relative;
-  top: -0.05em;
-}
-
-/* ── 인트로 크레딧 ── */
-.intro-credit {
-  position: absolute;
-  bottom: 36px;
-  left: 44px;
-  font-family: 'Courier New', monospace;
-  font-size: 9px;
-  letter-spacing: 0.18em;
-  color: #bbb;
-  opacity: 0;
-  animation: fadeUpIn 1s ease 2s forwards;
-}
-
-#intro {
-  position: fixed;
-  inset: 0;
-  z-index: 500;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: #fff;
-  transition: opacity 1.2s ease;
-}
-
-#intro::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(ellipse 80% 60% at 50% 50%, rgba(200,30,0,0.06) 0%, transparent 70%);
-  pointer-events: none;
-  animation: breathe 4s ease-in-out infinite;
-}
-
-@keyframes breathe {
-  0%, 100% { opacity: 0.6; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.05); }
-}
-
-#intro.hide {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.intro-title {
-  font-family: 'Noto Serif SC', serif;
-  font-size: clamp(72px, 14vw, 140px);
-  font-weight: 300;
-  color: #c94a2a;
-  letter-spacing: 0.18em;
-  text-align: center;
-  opacity: 0;
-  transform: translateY(16px);
-  animation: fadeUpIn 1.2s ease 0.3s forwards;
-}
-
-.intro-stmt {
-  margin-top: 32px;
-  font-family: 'Courier New', monospace;
-  font-size: 12px;
-  color: #999;
-  letter-spacing: 0.1em;
-  line-height: 2.2;
-  text-align: center;
-  opacity: 0;
-  animation: fadeUpIn 1s ease 1.2s forwards;
-}
-
-.intro-grab {
-  position: absolute;
-  bottom: 36px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-family: 'Courier New', monospace;
-  font-size: 11px;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: #c94a2a;
-  opacity: 0;
-  white-space: nowrap;
-  animation: fadeUpIn 1s ease 2.2s forwards, pulseFade 2s ease-in-out 3s infinite;
-}
-
-@keyframes fadeUpIn {
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes pulseFade {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
-}
 </style>
 </head>
 <body>
-
-
-<!-- 인트로 화면 -->
-<div id="intro">
-  <div class="intro-bg-char">馬言</div>
-  <div class="intro-title">馬<span class="intro-divider"></span>言</div>
-  <div class="intro-credit">Nopaaiin · 2026</div>
-  <div class="intro-stmt">
-    붉은 말의 해에, 나는 말을 잡으려 했다.<br>
-    손을 뻗으면 흩어지고, 쥐려 하면 사라진다.
-  </div>
-  <div class="intro-grab">✋ &nbsp; Grab to Start</div>
-</div>
 
 <div class="cursor" id="cursor"></div>
 <canvas id="mainCanvas"></canvas>
@@ -755,17 +614,6 @@ for (let i = 0; i < 4; i++) {
   horses.push(new Horse('dot', 100 + Math.random() * (W - 200), 100 + Math.random() * (H - 200)));
 }
 
-// ── 인트로 → 메인 전환 ──
-let introDone = false;
-const introEl = document.getElementById('intro');
-
-function startMain() {
-  if (introDone) return;
-  introDone = true;
-  introEl.classList.add('hide');
-  setTimeout(() => { introEl.style.display = 'none'; }, 1200);
-}
-
 // ── 손 인식 상태 ──
 let handState  = 'none';  // 'none' | 'open' | 'closed'
 let handSpeed  = 0;
@@ -817,7 +665,6 @@ hands.onResults(results => {
   prevFingerSum = fingerSum;
 
   handState = newState;
-  if (newState === 'closed' && !introDone) startMain();
   handStatusEl.textContent = newState === 'closed'
     ? `✊ closed (speed: ${handSpeed.toFixed(3)})`
     : `✋ open`;

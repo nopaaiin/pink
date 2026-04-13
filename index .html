@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>말 (馬 / 言)</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400&display=swap" rel="stylesheet">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; cursor: none; }
+
+body {
+  background: #ffffff;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+  font-family: 'Courier New', monospace;
+}
+
+/* ── 커서 ── */
+.cursor {
+  position: fixed;
+  width: 8px;
+  height: 8px;
+  background: #cc0000;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%, -50%);
+  transition: width 0.15s ease, height 0.15s ease, background 0.15s ease, border 0.15s ease, box-shadow 0.15s ease;
+  mix-blend-mode: multiply;
+}
+.cursor[data-state="open"] {
+  width: 18px;
+  height: 18px;
+  background: transparent;
+  border: 1.5px solid #cc0000;
+}
+.cursor[data-state="closed"] {
+  width: 5px;
+  height: 5px;
+  background: #cc0000;
+  animation: cursorPulse 0.6s ease-in-out infinite;
+}
+@keyframes cursorPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(204,0,0,0.6); }
+  100% { box-shadow: 0 0 0 10px rgba(204,0,0,0); }
+}
+.cursor[data-state="none"] {
+  width: 8px;
+  height: 8px;
+  background: #cc0000;
+  border: none;
+}
+
+/* ── 웹캠 컨테이너 ── */
+.webcam-wrap {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: 100;
+}
+.webcam-label {
+  font-family: 'Courier New', monospace;
+  font-size: 8px;
+  color: #bbb;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.webcam-label .rec-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #cc0000;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.webcam-label .rec-dot.active {
+  opacity: 1;
+  animation: recBlink 1s ease-in-out infinite;
+}
+@keyframes recBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+#webcam {
+  width: 180px;
+  height: 135px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  transform: scaleX(-1);
+  opacity: 0.7;
+  display: block;
+}
+.webcam-scanline {
+  position: absolute;
+  top: 0; left: 0;
+  width: 180px;
+  height: 135px;
+  pointer-events: none;
+  border-radius: 4px;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0,0,0,0.08) 0px,
+    rgba(0,0,0,0.08) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  /* offset to skip the label */
+  top: auto;
+  bottom: 0;
+}
+
+/* ── 손 상태 표시 (pill) ── */
+#handStatus {
+  position: fixed;
+  bottom: 164px;
+  left: 20px;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #999;
+  z-index: 100;
+  font-family: 'Courier New', monospace;
+  border: 1px solid #ddd;
+  background: rgba(255,255,255,0.8);
+  padding: 4px 10px;
+  border-radius: 20px;
+  transition: border-color 0.1s, color 0.1s, box-shadow 0.1s;
+  white-space: nowrap;
+}
+#handStatus.closed-state {
+  border-color: #cc0000;
+  color: #cc0000;
+  box-shadow: 0 0 8px rgba(200,0,0,0.2);
+}
+
+/* ── 캔버스 ── */
+#mainCanvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* ── 제목 ── */
+#title {
+  position: fixed;
+  top: 32px;
+  left: 40px;
+  z-index: 10;
+  pointer-events: none;
+}
+#title h1 {
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #999;
+  font-family: 'Courier New', monospace;
+}
+#title p {
+  font-size: 10px;
+  color: #ccc;
+  letter-spacing: 0.12em;
+  margin-top: 4px;
+  font-family: 'Courier New', monospace;
+}
+
+/* ── 이히힝 팝업 ── */
+.neigh-popup {
+  position: fixed;
+  pointer-events: none;
+  z-index: 50;
+  font-size: 18px;
+  font-family: 'Courier New', monospace;
+  color: #cc0000;
+  font-weight: bold;
+  animation: neighPop 1.5s ease forwards;
+  white-space: nowrap;
+}
+@keyframes neighPop {
+  0%   { opacity: 0; transform: translateY(0) scale(0.5); }
+  20%  { opacity: 1; transform: translateY(-10px) scale(1.2); }
+  60%  { opacity: 1; transform: translateY(-20px) scale(1); }
+  100% { opacity: 0; transform: translateY(-40px) scale(0.8); }
+}
+
+/* ── 손 가이드 ── */
+#guide {
+  position: fixed;
+  top: 32px;
+  right: 40px;
+  z-index: 10;
+  pointer-events: none;
+  text-align: right;
+}
+#guide p {
+  font-size: 9px;
+  color: #bbb;
+  letter-spacing: 0.1em;
+  line-height: 2;
+  font-family: 'Courier New', monospace;
+  text-transform: uppercase;
+}
+#guide .hand-emoji {
+  display: inline-block;
+  animation: handTilt 2s ease-in-out infinite;
+}
+@keyframes handTilt {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(5deg); }
+}
+
+/* ── 스테이트먼트 버튼 ── */
+#statementBtn {
+  position: fixed;
+  bottom: 32px;
+  right: 40px;
+  z-index: 100;
+  background: none;
+  border: 1px solid #ddd;
+  padding: 8px 16px;
+  font-family: 'Courier New', monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #bbb;
+  cursor: none;
+  transition: border-color .2s, color .2s;
+}
+#statementBtn:hover { border-color: #cc0000; color: #cc0000; }
+
+#statementCard {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255,255,255,0.88);
+  backdrop-filter: blur(10px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .4s ease;
+}
+#statementCard.active { opacity: 1; pointer-events: all; }
+.stmt-inner {
+  background: #fff;
+  border: 1px solid #eee;
+  padding: 52px 60px;
+  max-width: 540px;
+  width: 90%;
+  position: relative;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 23px,
+    rgba(0,0,0,0.03) 23px,
+    rgba(0,0,0,0.03) 24px
+  );
+}
+.stmt-inner::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px; height: 0;
+  background: #cc0000;
+  transition: height 0.4s ease;
+}
+#statementCard.active .stmt-inner::before {
+  height: 56px;
+}
+.stmt-tag {
+  font-family: 'Courier New', monospace;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #cc0000;
+  margin-bottom: 28px;
+  display: block;
+}
+.stmt-body {
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 2.4;
+  color: #222;
+  margin-bottom: 36px;
+  white-space: pre-line;
+}
+.stmt-body .stmt-line {
+  display: block;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.stmt-body .stmt-line.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.stmt-meta {
+  font-family: 'Courier New', monospace;
+  font-size: 9px;
+  color: #aaa;
+  letter-spacing: 0.1em;
+  line-height: 2;
+  border-top: 1px solid #f0f0f0;
+  padding-top: 18px;
+}
+.stmt-close {
+  position: absolute;
+  top: 18px; right: 18px;
+  background: none;
+  border: none;
+  font-family: 'Courier New', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: #bbb;
+  cursor: none;
+  transition: color .2s, transform .2s;
+}
+.stmt-close:hover { color: #cc0000; transform: rotate(45deg); }
+
+/* ── 인트로 화면 ── */
+.intro-bg-char {
+  position: absolute;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 55vw;
+  font-weight: 300;
+  color: rgba(180, 60, 30, 0.045);
+  pointer-events: none;
+  user-select: none;
+  white-space: nowrap;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.18em;
+  animation: fadeUpIn 2s ease 0.1s forwards, bgCharPulse 6s ease-in-out 2s infinite, bgCharRotate 8s ease-in-out 2s infinite;
+  opacity: 0;
+}
+@keyframes bgCharPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+@keyframes bgCharRotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(2deg); }
+}
+
+/* scattered 馬 characters */
+.intro-scatter {
+  position: absolute;
+  font-family: 'Noto Serif SC', serif;
+  font-weight: 300;
+  color: rgba(180, 60, 30, 0.03);
+  pointer-events: none;
+  user-select: none;
+  animation: scatterDrift 20s linear infinite;
+}
+@keyframes scatterDrift {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-20px); }
+}
+
+.intro-divider {
+  display: inline-block;
+  width: 1px;
+  height: 0.75em;
+  background: rgba(180, 60, 30, 0.35);
+  margin: 0 0.3em;
+  vertical-align: middle;
+  position: relative;
+  top: -0.05em;
+}
+
+.intro-credit {
+  position: absolute;
+  bottom: 36px;
+  left: 44px;
+  font-family: 'Courier New', monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: #bbb;
+  opacity: 0;
+  animation: fadeUpIn 1s ease 2s forwards;
+}
+
+#intro {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  transition: opacity 1.2s ease;
+}
+
+#intro::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 80% 60% at 50% 50%, rgba(200,30,0,0.06) 0%, transparent 70%);
+  pointer-events: none;
+  animation: breathe 4s ease-in-out infinite;
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+#intro.hide {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Intro flash overlay */
+.intro-flash {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 501;
+}
+
+.intro-title {
+  font-family: 'Noto Serif SC', serif;
+  font-size: clamp(72px, 14vw, 140px);
+  font-weight: 300;
+  color: #c94a2a;
+  letter-spacing: 0.18em;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(16px);
+  animation: fadeUpIn 1.2s ease 0.3s forwards;
+  text-shadow: 0 0 60px rgba(180,30,0,0.15);
+}
+
+.intro-stmt {
+  margin-top: 32px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: #999;
+  letter-spacing: 0.1em;
+  line-height: 2.2;
+  text-align: center;
+  opacity: 0;
+  animation: fadeUpIn 1s ease 1.2s forwards;
+}
+
+.intro-grab {
+  position: absolute;
+  bottom: 36px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #c94a2a;
+  opacity: 0;
+  white-space: nowrap;
+  animation: fadeUpIn 1s ease 2.2s forwards, pulseFade 2s ease-in-out 3s infinite;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.intro-grab::before {
+  content: '●';
+  color: #cc0000;
+  font-size: 8px;
+  animation: recBlink 1.2s ease-in-out infinite;
+}
+
+@keyframes fadeUpIn {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulseFade {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+</style>
+</head>
+<body>
+
+<!-- 인트로 화면 -->
+<div id="intro">
+  <div class="intro-bg-char">馬言</div>
+  <div class="intro-title">馬<span class="intro-divider"></span>言</div>
+  <div class="intro-credit">Nopaaiin · 2026</div>
+  <div class="intro-stmt">
+    붉은 말의 해에, 나는 말을 잡으려 했다.<br>
+    손을 뻗으면 흩어지고, 쥐려 하면 사라진다.
+  </div>
+  <div class="intro-grab">Grab to Start</div>
+</div>
+
+<!-- Intro flash overlay -->
+<div class="intro-flash" id="introFlash"></div>
+
+<div class="cursor" id="cursor" data-state="none"></div>
+<canvas id="mainCanvas"></canvas>
+
+<div class="webcam-wrap">
+  <div class="webcam-label">
+    <span>LIVE INPUT</span>
+    <span class="rec-dot" id="recDot"></span>
+  </div>
+  <div style="position:relative; display:inline-block;">
+    <video id="webcam" autoplay muted playsinline></video>
+    <div class="webcam-scanline"></div>
+  </div>
+</div>
+
+<div id="title">
+  <h1>말 (馬 / 言)</h1>
+  <p>Nopaaiin · 2026</p>
+</div>
+
+<div id="guide">
+  <p><span class="hand-emoji">✋</span> Open hand → approach</p>
+  <p><span class="hand-emoji">✊</span> Closed fist → flee</p>
+</div>
+
+<div id="handStatus">— STANDBY</div>
+
+<button id="statementBtn" onclick="openStatement()">작품 설명 ↗</button>
+
+<div id="statementCard">
+  <div class="stmt-inner">
+    <button class="stmt-close" onclick="closeStatement()">✕ CLOSE</button>
+    <span class="stmt-tag">말 (馬 / 言) — 2026</span>
+    <p class="stmt-body" id="stmtBody">붉은 말의 해에, 나는 말을 잡으려 했다.
+
+손을 뻗으면 흩어지고, 쥐려 하면 사라진다.
+말(馬)은 말(言)처럼 —
+한번 달리기 시작하면 내 손을 벗어난다.
+
+잡으려는 순간 멀어지고,
+손을 내리면 다가온다.
+
+기뻐하지도 슬퍼하지도 말 것.
+원래 잡히지 않는 것들이 있다.</p>
+    <p class="stmt-meta">
+      재료 — MediaPipe Hands, Canvas API<br>
+      작가 — Nopaaiin · 홍익대학교 시각디자인
+    </p>
+  </div>
+</div>
+
+<!-- MediaPipe -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+
+<script>
+// ── 인트로 scattered 馬 ──
+(function createScatter() {
+  const intro = document.getElementById('intro');
+  for (let i = 0; i < 10; i++) {
+    const el = document.createElement('div');
+    el.className = 'intro-scatter';
+    el.textContent = '馬';
+    el.style.left = (Math.random() * 90 + 5) + '%';
+    el.style.top = (Math.random() * 80 + 10) + '%';
+    el.style.fontSize = (8 + Math.random() * 10) + 'vw';
+    el.style.opacity = (0.02 + Math.random() * 0.03).toFixed(3);
+    el.style.animationDelay = (Math.random() * 20) + 's';
+    intro.insertBefore(el, intro.firstChild);
+  }
+})();
+
+// ── Statement card line stagger ──
+function openStatement() {
+  const card = document.getElementById('statementCard');
+  card.classList.add('active');
+  // Wrap lines in spans for stagger animation
+  const body = document.getElementById('stmtBody');
+  const text = body.textContent;
+  const lines = text.split('\n');
+  body.innerHTML = '';
+  lines.forEach((line, i) => {
+    const span = document.createElement('span');
+    span.className = 'stmt-line';
+    span.textContent = line || '\u00A0'; // nbsp for empty lines
+    body.appendChild(span);
+    setTimeout(() => span.classList.add('visible'), 30 * i);
+  });
+}
+function closeStatement() {
+  const card = document.getElementById('statementCard');
+  card.classList.remove('active');
+}
+
+// ── 커서 ──
+const cursorEl = document.getElementById('cursor');
+document.addEventListener('mousemove', e => {
+  cursorEl.style.left = e.clientX + 'px';
+  cursorEl.style.top  = e.clientY + 'px';
+});
+
+// ── 캔버스 ──
+const canvas = document.getElementById('mainCanvas');
+const ctx    = canvas.getContext('2d');
+let W, H;
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ══════════════════════════════════════
+// ── ASCII HORSE FRAMES (side profile) ──
+// ══════════════════════════════════════
+
+// WALK CYCLE — 6 frames, diagonal gait
+const ASCII_WALK = [
+  // Frame 1 — left-front + right-back forward
+`    .-.
+   / ^ \\___
+  |     \\   \\~~~
+   \\   /----'
+    | |  | |
+    | |  |  \\
+   /   \\ |  |
+  /     \\|  |`,
+  // Frame 2
+`    .-.
+   / ^ \\___
+  |     \\   \\~~~
+   \\   /----'
+    | |  |  \\
+    |  \\ |  |
+   /   | |  |
+  /    | \\  |`,
+  // Frame 3
+`    .-.
+   / ^ \\___
+  |     \\   \\~~~
+   \\   /----'
+    |  \\ | |
+    |  | |  \\
+    |  |/   |
+    | /  \\  |`,
+  // Frame 4 — right-front + left-back forward
+`    .-.
+   / ^ \\___
+  |     \\   \\~~~
+   \\   /----'
+    |  \\ |  \\
+    |  | |  |
+    |  | /  |
+    | /  /  |`,
+  // Frame 5
+`    .-.
+   / ^ \\___
+  |     \\   \\~~~
+   \\   /----'
+    | |  |  \\
+    | \\  |  |
+    /  | /  |
+   /   |/   |`,
+  // Frame 6
+`    .-.
+   / ^ \\___
+  |     \\   \\~~~
+   \\   /----'
+    | |  | |
+    |  \\ | \\
+   /   | /  \\
+  /    |/    \\`,
+];
+
+// GALLOP / FLEE — 4 frames, stretched + panicked
+const ASCII_FLEE = [
+  // Gallop 1 — legs fully extended
+`   .-.
+  / o \\______
+ |      \\    \\~~~~
+  \\    /------'
+   \\  /    \\  /
+    \\/      \\/
+   /          \\
+  /            \\`,
+  // Gallop 2 — legs gathered
+`   .-.
+  / o \\______
+ |      \\    \\~~~~
+  \\    /------'
+    | |    | |
+    | \\    / |
+     \\ \\  / /
+      \\_\\/_/`,
+  // Gallop 3 — front up, back push
+`   .-.
+  / o \\______
+ |      \\    \\~~~~
+  \\    /------'
+   /  /    \\  \\
+  /  |      | \\
+ /   |      |  \\
+/    |       |`,
+  // Gallop 4 — airborne
+`   .-.
+  / o \\______
+ |      \\    \\~~~~
+  \\    /------'
+    \\ \\    / /
+     \\ \\  / /
+      | |/ |
+      /   \\`,
+];
+
+// FALLEN — on side
+const ASCII_FALLEN = 
+`  ____
+ /    \\___
+|  x   \\  \\~~
+ \\    /---'
+==|==|==|==|
+  |  |  |  |`;
+
+
+// ══════════════════════════════════
+// ── DOT HORSE FRAMES (20×14 grid) ──
+// ══════════════════════════════════
+function makeDotFrames() {
+  // Helper: parse string grid for readability
+  function p(str) {
+    return str.trim().split('\n').map(row => row.trim().split('').map(Number));
+  }
+
+  const f1 = p(`
+00000111100000000000
+00001111110000000000
+00011001111000000000
+00110001111100000000
+01100001111111100000
+00000011111111110000
+00000111111111111000
+00001111000111001100
+00001110000110001100
+00001100000100001000
+00001000000100001000
+00001000000100010000
+00010000001000010000
+00010000001000000000`);
+
+  const f2 = p(`
+00000111100000000000
+00001111110000000000
+00011001111000000000
+00110001111100000000
+01100001111111100000
+00000011111111110000
+00000111111111111000
+00001111000111001100
+00011110000110000100
+00011000000100000100
+00100000000100001000
+00100000000100001000
+01000000001000010000
+01000000000000010000`);
+
+  const f3 = p(`
+00000111100000000000
+00001111110000000000
+00011001111000000000
+00110001111100000000
+01100001111111100000
+00000011111111110000
+00000111111111111000
+00001111000111001100
+00000111000011001100
+00000110000010001000
+00001000000100010000
+00001000000100100000
+00010000001001000000
+00010000001001000000`);
+
+  const f4 = p(`
+00000111100000000000
+00001111110000000000
+00011001111000000000
+00110001111100000000
+01100001111111100000
+00000011111111110000
+00000111111111111000
+00001111000111001100
+00010011000010011000
+00100010000001010000
+00100000000000100000
+01000000000001000000
+01000000001000000100
+00000000001000000100`);
+
+  const f5 = p(`
+00000111100000000000
+00001111110000000000
+00011001111000000000
+00110001111100000000
+01100001111111100000
+00000011111111110000
+00000111111111111000
+00001111000111001100
+00001110000110001100
+00010100000010010000
+00100000000001000000
+01000000000010000000
+01000000000100000010
+00000000001000000010`);
+
+  const f6 = p(`
+00000111100000000000
+00001111110000000000
+00011001111000000000
+00110001111100000000
+01100001111111100000
+00000011111111110000
+00000111111111111000
+00001111000111001100
+00001111000011001000
+00001010000010010000
+00010000000100010000
+00010000000100100000
+00100000001001000000
+00100000001000000000`);
+
+  return [f1, f2, f3, f4, f5, f6];
+}
+const DOT_FRAMES = makeDotFrames();
+
+
+// ══════════════════════════════════
+// ── PARTICLE SYSTEM (object pool) ──
+// ══════════════════════════════════
+const MAX_PARTICLES = 200;
+const particlePool = [];
+for (let i = 0; i < MAX_PARTICLES; i++) {
+  particlePool.push({ alive: false, x:0, y:0, vx:0, vy:0, life:0, maxLife:20, r:2 });
+}
+
+function emitDust(x, y) {
+  const count = 3 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < count; i++) {
+    for (let j = 0; j < MAX_PARTICLES; j++) {
+      const p = particlePool[j];
+      if (!p.alive) {
+        p.alive = true;
+        p.x = x + (Math.random()-0.5)*10;
+        p.y = y + (Math.random()-0.5)*4;
+        p.vx = (Math.random()-0.5)*1.2;
+        p.vy = Math.random()*0.5 + 0.3;
+        p.life = 0;
+        p.maxLife = 16 + Math.floor(Math.random()*8);
+        p.r = 1.5 + Math.random()*1;
+        break;
+      }
+    }
+  }
+}
+
+function updateAndDrawParticles() {
+  for (let i = 0; i < MAX_PARTICLES; i++) {
+    const p = particlePool[i];
+    if (!p.alive) continue;
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.02;
+    p.life++;
+    if (p.life >= p.maxLife) { p.alive = false; continue; }
+    const alpha = (1 - p.life / p.maxLife) * 0.35;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(204,34,0,${alpha})`;
+    ctx.fill();
+  }
+}
+
+
+// ══════════════════════════
+// ── HORSE CLASS ──
+// ══════════════════════════
+class Horse {
+  constructor(type, x, y) {
+    this.type   = type;
+    this.x      = x;
+    this.y      = y;
+    this.baseY  = y;
+    this.vx     = (Math.random() - 0.5) * 2.5;
+    this.vy     = (Math.random() - 0.5) * 0.8;
+    this.speed  = 2.0 + Math.random() * 1.5;
+    this.dir    = Math.random() > 0.5 ? 1 : -1;
+    this.frame  = 0;
+    this.frameTimer = 0;
+    this.frameSpeed = 8;
+    this.state  = 'idle';
+    this.fallenTimer = 0;
+    this.size   = type === 'ascii' ? 1 : 5;
+    this.targetX = x;
+    this.targetY = y;
+    this.neighShown = false;
+    this.color = '#cc2200';
+    // Variation
+    this.scaleMul = 0.7 + Math.random() * 0.6; // 0.7–1.3
+    this.alphaBase = 0.7 + Math.random() * 0.3; // 0.7–1.0
+    // Flee burst
+    this.fleeBurst = 0;
+    // Fright flash
+    this.frightFlash = 0;
+    // Bob phase
+    this.bobPhase = Math.random() * Math.PI * 2;
+  }
+
+  update(handState, handSpeed, handX, handY, allHorses) {
+    if (this.state === 'fallen') {
+      this.fallenTimer--;
+      if (this.fallenTimer <= 0) {
+        this.state = 'fleeing';
+        this.vx = this.dir * this.speed * 3;
+        this.fleeBurst = 30;
+      }
+      return;
+    }
+
+    const dx = this.x - (handX * W);
+    const dy = this.y - (handY * H);
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const influence = Math.max(0, 1 - dist / 400);
+
+    if (handState === 'open') {
+      this.state = 'walking';
+      if (Math.abs(this.vx) < 1.0) this.vx = this.dir * 1.2;
+      this.frameSpeed = 8;
+    } else if (handState === 'closed') {
+      const fleeSpeed = handSpeed > 0.3 ? 4.5 : 1.8;
+      this.state = handSpeed > 0.3 ? 'fleeing' : 'walking';
+      const fromHandX = this.x - handX * W;
+      if (fromHandX > 0) this.dir = 1;
+      else this.dir = -1;
+      const angle = Math.atan2(this.y - handY * H, fromHandX);
+      this.vx += Math.cos(angle) * fleeSpeed * 0.18 * (influence + 0.3);
+      this.vy += Math.sin(angle) * fleeSpeed * 0.09 * (influence + 0.3);
+      this.frameSpeed = handSpeed > 0.3 ? 4 : 8;
+
+      if (handSpeed > 0.3 && this.fleeBurst <= 0) {
+        this.fleeBurst = 30;
+        this.frightFlash = 8;
+      }
+
+      if (handSpeed > 0.3 && !this.neighShown && Math.random() < 0.05) {
+        this.state = 'fallen';
+        this.fallenTimer = 90;
+        this.neighShown = true;
+        this.vx = 0; this.vy = 0;
+        showNeigh(this.x, this.y);
+        setTimeout(() => { this.neighShown = false; }, 5000);
+      }
+    } else {
+      this.state = 'idle';
+      this.vy += (Math.random() - 0.5) * 0.1;
+      if (Math.abs(this.vx) < 0.8) this.vx = this.dir * 1.0;
+      if (Math.random() < 0.005) {
+        this.dir *= -1;
+        this.vx = this.dir * Math.abs(this.vx);
+      }
+      this.frameSpeed = 10;
+    }
+
+    // ── Herd behavior: drift toward centroid when idle ──
+    if (this.state === 'idle' || this.state === 'walking') {
+      let cx = 0, cy = 0;
+      for (let i = 0; i < allHorses.length; i++) {
+        cx += allHorses[i].x;
+        cy += allHorses[i].y;
+      }
+      cx /= allHorses.length;
+      cy /= allHorses.length;
+      this.vx += (cx - this.x) * 0.002;
+      this.vy += (cy - this.y) * 0.002;
+    }
+
+    // ── Flee burst ──
+    if (this.fleeBurst > 0) {
+      this.vx *= 1.03; // amplify during burst
+      this.fleeBurst--;
+    }
+
+    // Fright flash countdown
+    if (this.frightFlash > 0) this.frightFlash--;
+
+    // 속도 감쇠
+    this.vx *= 0.97;
+    this.vy *= 0.95;
+
+    // 위치 업데이트
+    this.x += this.vx;
+    this.y += this.vy;
+
+    // 방향
+    if (this.vx > 0.3) this.dir = 1;
+    if (this.vx < -0.3) this.dir = -1;
+    this.vx = this.dir * Math.abs(this.vx);
+
+    // 화면 밖으로 나가면 반대편에서 재등장
+    if (this.x > W + 150) this.x = -150;
+    if (this.x < -150) this.x = W + 150;
+    if (this.y > H + 100) this.y = -100;
+    if (this.y < -100) this.y = H + 100;
+
+    // 프레임 업데이트
+    this.frameTimer++;
+    const maxFrames = (this.state === 'fleeing') ?
+      (this.type === 'ascii' ? ASCII_FLEE.length : DOT_FRAMES.length) :
+      (this.type === 'ascii' ? ASCII_WALK.length : DOT_FRAMES.length);
+    if (this.frameTimer >= this.frameSpeed) {
+      this.frameTimer = 0;
+      this.frame = (this.frame + 1) % maxFrames;
+    }
+
+    // ── Y-axis bobbing ──
+    this.bobPhase += (this.state === 'fleeing') ? 0.4 : 0.25;
+    const bobAmp = (this.state === 'fleeing') ? 6 : 3;
+    this.baseY = this.y + Math.sin(this.bobPhase) * bobAmp;
+
+    // ── Dust particles when fleeing ──
+    if (this.state === 'fleeing' && Math.random() < 0.6) {
+      const hoofY = this.baseY + 40 * this.scaleMul;
+      emitDust(this.x, hoofY);
+    }
+  }
+
+  draw() {
+    ctx.save();
+
+    const drawY = this.baseY || this.y;
+
+    if (this.state === 'fallen') {
+      ctx.translate(this.x, drawY);
+      ctx.rotate(Math.PI / 2);
+      ctx.scale(this.scaleMul, this.scaleMul);
+      ctx.translate(0, 0);
+    } else {
+      ctx.translate(this.x, drawY);
+      // Subtle tilt when fleeing
+      if (this.state === 'fleeing') {
+        ctx.rotate(this.dir * 0.05);
+      }
+      ctx.scale(this.scaleMul, this.scaleMul);
+    }
+
+    if (this.type === 'ascii') {
+      this.drawAscii();
+    } else if (this.type === 'dot') {
+      this.drawDot();
+    }
+
+    ctx.restore();
+  }
+
+  drawAscii() {
+    let frames, frameIdx;
+    if (this.state === 'fallen') {
+      const lines = ASCII_FALLEN.split('\n');
+      ctx.font = '11px Courier New';
+      // Fright flash
+      const alpha = this.alphaBase;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = this.color;
+      if (this.dir === 1) ctx.scale(-1, 1);
+      lines.forEach((line, i) => {
+        ctx.fillText(line, -50, -30 + i * 11);
+      });
+      ctx.globalAlpha = 1;
+      return;
+    }
+
+    if (this.state === 'fleeing') {
+      frames = ASCII_FLEE;
+      frameIdx = this.frame % ASCII_FLEE.length;
+    } else {
+      frames = ASCII_WALK;
+      frameIdx = this.frame % ASCII_WALK.length;
+    }
+
+    const lines = frames[frameIdx].split('\n');
+    ctx.font = '11px Courier New';
+
+    // Fright flash: white→red
+    if (this.frightFlash > 0) {
+      const t = this.frightFlash / 8;
+      const r = Math.round(204 + (255-204)*t);
+      const g = Math.round(34 + (255-34)*t);
+      const b = Math.round(0 + (255-0)*t);
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.fillStyle = this.color;
+      ctx.globalAlpha = this.alphaBase * 0.9;
+    }
+
+    if (this.dir === 1) ctx.scale(-1, 1);
+    lines.forEach((line, i) => {
+      ctx.fillText(line, -50, -40 + i * 11);
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  drawDot() {
+    const frameIdx = this.frame % DOT_FRAMES.length;
+    const grid = DOT_FRAMES[frameIdx];
+    const isFleeing = this.state === 'fleeing';
+    const px = isFleeing ? 7 : this.size;
+    const gw = grid[0].length * px;
+    const gh = grid.length * px;
+
+    if (this.dir === 1) ctx.scale(-1, 1);
+
+    // Fright flash
+    let mainColor = '#cc2200';
+    let highlightColor = '#ee4400';
+    if (this.frightFlash > 0) {
+      const t = this.frightFlash / 8;
+      mainColor = `rgb(${Math.round(204+(255-204)*t)},${Math.round(34+(255-34)*t)},${Math.round(0+(255-0)*t)})`;
+      highlightColor = mainColor;
+    }
+
+    ctx.globalAlpha = this.alphaBase * 0.9;
+    grid.forEach((row, ry) => {
+      row.forEach((cell, rx) => {
+        if (cell) {
+          // Highlight row (top of body area, row 4-5)
+          ctx.fillStyle = (ry >= 3 && ry <= 4) ? highlightColor : mainColor;
+          ctx.fillRect(-gw/2 + rx*px, -gh/2 + ry*px, px-1, px-1);
+          // Red outline when fleeing
+          if (isFleeing) {
+            ctx.strokeStyle = 'rgba(204,0,0,0.5)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(-gw/2 + rx*px, -gh/2 + ry*px, px-1, px-1);
+          }
+        }
+      });
+    });
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ── 이히힝 팝업 ──
+function showNeigh(x, y) {
+  const el = document.createElement('div');
+  el.className = 'neigh-popup';
+  el.textContent = '이히힝~';
+  el.style.left = x + 'px';
+  el.style.top  = y + 'px';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1500);
+}
+
+// ── 말들 생성 (4 ASCII + 6 DOT = 10) ──
+const horses = [];
+for (let i = 0; i < 4; i++) {
+  horses.push(new Horse('ascii', 100 + Math.random() * (W - 200), 150 + Math.random() * (H - 300)));
+}
+for (let i = 0; i < 6; i++) {
+  horses.push(new Horse('dot', 100 + Math.random() * (W - 200), 100 + Math.random() * (H - 200)));
+}
+
+// ── 인트로 → 메인 전환 ──
+let introDone = false;
+const introEl = document.getElementById('intro');
+const introFlash = document.getElementById('introFlash');
+
+function startMain() {
+  if (introDone) return;
+  introDone = true;
+  // Flash effect
+  introFlash.style.opacity = '0.6';
+  setTimeout(() => {
+    introFlash.style.transition = 'opacity 0.3s ease';
+    introFlash.style.opacity = '0';
+  }, 80);
+  introEl.classList.add('hide');
+  setTimeout(() => { introEl.style.display = 'none'; }, 1200);
+}
+
+// ── 손 인식 상태 ──
+let handState  = 'none';
+let handSpeed  = 0;
+let handX      = 0.5;
+let handY      = 0.5;
+let prevFingerSum = 0;
+
+const handStatusEl = document.getElementById('handStatus');
+const recDot = document.getElementById('recDot');
+
+// ── MediaPipe Hands ──
+const hands = new Hands({
+  locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
+});
+
+hands.setOptions({
+  maxNumHands: 1,
+  modelComplexity: 1,
+  minDetectionConfidence: 0.7,
+  minTrackingConfidence: 0.5,
+});
+
+hands.onResults(results => {
+  if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+    handState = 'none';
+    handStatusEl.textContent = '— STANDBY';
+    handStatusEl.classList.remove('closed-state');
+    cursorEl.setAttribute('data-state', 'none');
+    recDot.classList.remove('active');
+    return;
+  }
+
+  // Hand detected — show rec dot
+  recDot.classList.add('active');
+
+  const lm = results.multiHandLandmarks[0];
+  handX = 1 - lm[9].x;
+  handY = lm[9].y;
+
+  const tips  = [8, 12, 16, 20];
+  const mids  = [6, 10, 14, 18];
+  let closedCount = 0;
+  tips.forEach((tip, i) => {
+    if (lm[tip].y > lm[mids[i]].y) closedCount++;
+  });
+
+  const newState = closedCount >= 3 ? 'closed' : 'open';
+
+  const fingerSum = tips.reduce((sum, tip) => sum + lm[tip].y, 0);
+  handSpeed = Math.abs(fingerSum - prevFingerSum);
+  prevFingerSum = fingerSum;
+
+  handState = newState;
+  if (newState === 'closed' && !introDone) startMain();
+
+  // Update UI
+  if (newState === 'closed') {
+    handStatusEl.textContent = '✊ CLOSED';
+    handStatusEl.classList.add('closed-state');
+    cursorEl.setAttribute('data-state', 'closed');
+  } else {
+    handStatusEl.textContent = '✋ OPEN';
+    handStatusEl.classList.remove('closed-state');
+    cursorEl.setAttribute('data-state', 'open');
+  }
+});
+
+// 웹캠 시작
+const webcamEl = document.getElementById('webcam');
+navigator.mediaDevices.getUserMedia({ video: true })
+  .then(stream => {
+    webcamEl.srcObject = stream;
+    const camera = new Camera(webcamEl, {
+      onFrame: async () => { await hands.send({ image: webcamEl }); },
+      width: 320, height: 240
+    });
+    camera.start();
+  })
+  .catch(err => {
+    handStatusEl.textContent = '— CAMERA N/A';
+    console.warn('Camera error:', err);
+  });
+
+
+// ══════════════════════════
+// ── BACKGROUND GRID ──
+// ══════════════════════════
+function drawGrid() {
+  // Micro grid 20px
+  ctx.strokeStyle = 'rgba(0,0,0,0.015)';
+  ctx.lineWidth = 0.5;
+  for (let x = 0; x < W; x += 20) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = 0; y < H; y += 20) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  // Primary grid 80px with warp near horses
+  ctx.strokeStyle = 'rgba(0,0,0,0.04)';
+  ctx.lineWidth = 1;
+
+  for (let gx = 0; gx < W; gx += 80) {
+    ctx.beginPath();
+    for (let sy = 0; sy <= H; sy += 10) {
+      let warpX = gx;
+      // Check proximity to horses for warp
+      for (let h = 0; h < horses.length; h++) {
+        const horse = horses[h];
+        const ddx = gx - horse.x;
+        const ddy = sy - (horse.baseY || horse.y);
+        const d = Math.sqrt(ddx*ddx + ddy*ddy);
+        if (d < 200) {
+          const proximity = 1 - d / 200;
+          warpX += Math.sin(sy * 0.05 + horse.bobPhase) * 2 * proximity;
+        }
+      }
+      if (sy === 0) ctx.moveTo(warpX, sy);
+      else ctx.lineTo(warpX, sy);
+    }
+    ctx.stroke();
+  }
+
+  for (let gy = 0; gy < H; gy += 80) {
+    ctx.beginPath();
+    for (let sx = 0; sx <= W; sx += 10) {
+      let warpY = gy;
+      for (let h = 0; h < horses.length; h++) {
+        const horse = horses[h];
+        const ddx = sx - horse.x;
+        const ddy = gy - (horse.baseY || horse.y);
+        const d = Math.sqrt(ddx*ddx + ddy*ddy);
+        if (d < 200) {
+          const proximity = 1 - d / 200;
+          warpY += Math.sin(sx * 0.05 + horse.bobPhase) * 2 * proximity;
+        }
+      }
+      if (sx === 0) ctx.moveTo(sx, warpY);
+      else ctx.lineTo(sx, warpY);
+    }
+    ctx.stroke();
+  }
+}
+
+
+// ── 렌더 루프 ──
+function render() {
+  // Performance: skip if tab hidden
+  if (document.hidden) {
+    requestAnimationFrame(render);
+    return;
+  }
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, H);
+
+  // 배경 격자
+  drawGrid();
+
+  // 손 영향 범위 표시
+  if (handState !== 'none') {
+    const hx = handX * W, hy = handY * H;
+    const grad = ctx.createRadialGradient(hx, hy, 0, hx, hy, 300);
+    if (handState === 'open') {
+      grad.addColorStop(0, 'rgba(200,0,0,0.04)');
+    } else {
+      grad.addColorStop(0, 'rgba(0,0,0,0.04)');
+    }
+    grad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // 말 업데이트
+  horses.forEach(h => {
+    h.update(handState, handSpeed, handX, handY, horses);
+  });
+
+  // 말끼리 밀어내기
+  for (let i = 0; i < horses.length; i++) {
+    for (let j = i + 1; j < horses.length; j++) {
+      const a = horses[i], b = horses[j];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const minDist = 80;
+      if (dist < minDist && dist > 0) {
+        const force = (minDist - dist) / minDist * 0.4;
+        const nx = dx / dist, ny = dy / dist;
+        a.vx -= nx * force;
+        a.vy -= ny * force;
+        b.vx += nx * force;
+        b.vy += ny * force;
+      }
+    }
+  }
+
+  // 파티클
+  updateAndDrawParticles();
+
+  // 말 그리기
+  horses.forEach(h => h.draw());
+
+  requestAnimationFrame(render);
+}
+
+render();
+</script>
+</body>
+</html>
